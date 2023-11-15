@@ -1,0 +1,92 @@
+node detecteur_auto(mvt, onoff, hs:bool) returns (alarme:bool)
+let
+    automaton
+        state Arret
+            do alarme = false
+            unless onoff then Marche
+        state Marche 
+            var last time : int = 0;
+            do automaton 
+                state Quiet
+                    do time = 0
+                    unless mvt then Counting
+                state Counting
+                    do time = last time + (if hs then 10 else 0)
+                    unless not mvt then Quiet
+            end;
+            alarme = (time = 50);
+            until alarme then Declenche
+            unless onoff then Arret
+        state Declenche
+            do alarme = true 
+            unless onoff then Arret
+    end;
+tel
+
+node chrono2(start_stop, rst, hs:bool) returns (last time:int = 0)
+let
+(* time = if rst then 0 else ((0 fby time) + elapsed);
+reset time = somme(elapsed) every rst *)
+    automaton
+        state Stop
+        (*  do elapsed = 0 *)
+            do  time = if rst then 0 
+                else last time
+            (*  automaton
+                state ToZero 
+                    do time = 0
+                    unless not(rst) then Restart
+                state Restart
+                    do time = last time
+                    unless rst then ToZero
+            end *)
+        unless start_stop then Start
+        state Start 
+        (*  do elapsed = if hs then 10 else 0 *)
+            do time = if rst then 0 
+                else last time + if hs then 10 else 0
+                (* automaton 
+                state ToZero
+                    do time = 0
+                    unless not(rst) then Restart
+                state Restart
+                    do time = last time + if hs then 10 else 0
+                    unless rst then ToZero
+            end *)
+        unless start_stop then Stop 
+    end 
+tel
+
+node chrono3(start_stop, rst, hs, pause:bool) returns (last displayed_time : int = 0)
+var internal_time : int;
+let
+    internal_time = chrono2(start_stop, rst, hs);
+    automaton 
+        state Gelee
+            do displayed_time = internal_time
+            unless pause then Degelee
+        state Degelee
+            do 
+            unless pause then Gelee
+    end
+tel
+
+node chrono2Bis(start_stop, rst, hs:bool) returns (last displayed_time:int = 0)
+var internal_time : int; running, internal_rst :bool;
+let
+    internal_time = chrono2(start_stop, internal_rst, hs);
+    running = (false fby running) <> start_stop;
+    (* automaton
+        state Run do running = false unless start_stop then Stop
+        state Stop do running = true unless start_stop then Run *)
+    automaton 
+        state Gelee
+            do displayed_time = internal_time;
+            internal_rst = rst  and not running;
+            unless rst and running then Degelee
+        state Degelee
+            do internal_rst = false;
+            unless rst then Gelee
+    end
+tel
+

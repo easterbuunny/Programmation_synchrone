@@ -1,0 +1,9 @@
+node ring_buffer<<n:int>>(e:int; w,r:bool) returns (o:int)
+var r_idx, w_idx:int; pa, a : int^n;
+let 
+    o = a.[r_idx] default 0;
+    pa = (0^n) fby a;
+    a = if w then [pa with [w_idx] = e] else pa;
+    r_idx = 0 fby (((if r then 1 else 0) + r_idx) % n );
+    w_idx = 0 fby (((if w then 1 else 0) + w_idx) % n );
+tel

@@ -1,0 +1,97 @@
+open Globals
+
+(* Perimetre des roues et de la voiture tounant sur place *)
+const wheelGirth : float = pi *.cD
+const carGirth : float = pi *. cB
+
+(*temps passé en seconde par loop.*)
+const dt : float = timestep 
+(* Constante d'angle d'un circle *)
+const circle : float = 360.0
+(*Constante de Gain critique. Determine la vit max où on arrive à rester sur la route.*)
+const ktp : float = 1.0
+const offset : int = 0
+
+(*Constante Proportionnelle. + c'est grand, + on retourne vite sur la ligne. *)
+(*trouvée à partir de la formule : kp = (0.0 -. tp) /. (-.255.0 -. 0.0); *)
+const kp : float = 0.402 (*default value was : 0.98. P kc found at 0.335*)
+const ki : float = 0.01005 (*formule :  1.2*.kp*.dt/.0.8 *)
+const kd : float = 6.0(*kc*.0.8/.8.0*.0.010*)
+
+(* Transforme cm/s en °/s *)
+fun getMaxSpeed(param : float) returns (x: float)
+let
+  x = param /. (wheelGirth /. circle) *. ktp;
+tel
+
+(* Formule de PID *)
+fun pid(err: int; integral: int; derivative :int) returns (turn:float)
+let
+  turn =  kp *. Mathext.float(err) +. ki *. Mathext.float(integral) +. kd *. Mathext.float(derivative);
+tel
+
+(* Distance de l'arc *)
+node getArcLength(angle : float)returns (al:float)
+let
+  al = (Utilities.abs(angle) /. circle) *. carGirth;
+tel
+
+(* Temps pour tourner l'arc *)
+node timeToTravelArc(iti:itielts; index: int) returns (solve : float)
+let
+  solve = getArcLength((iti[>index<]).param) /. (iti[>index-1<]).param;
+tel
+
+node controller(sens : sensors; iti : itielts)
+      returns (last rspeed : wheels = { left = 0.0; right = 0.0 } ; 
+	  arriving : bool)
+var last tp : float = 0.0;
+last index : int = -1;
+last in_green : bool = false;
+let
+  automaton
+      state Distribution
+        do index = (last index + 1);
+
+        arriving = false;
+        rspeed = idlew;
+        until ((iti[>index<]).act = Go) then Go | 
+              ((iti[>index<]).act = Turn) then Turn | 
+              ((iti[>index<]).act = Stop) then Stop 
+      state Go
+          var lightValue, err, prev_err, integral, derivative : int;
+          turn : float;
+          do in_green = (Utilities.decode_color(sens.s_road) = Green);
+
+            (* calcul de coefficient du pid  *)
+            lightValue = sens.s_road.red - sens.s_road.green; (*[-255;+255]*)
+            err = lightValue - offset;
+            prev_err = 0 fby err;
+            integral = 0 fby Mathext.int((2.0 /. 3.0) *. Mathext.float(integral)) + err;
+            derivative = 0 fby (err - prev_err);
+
+            tp = getMaxSpeed((iti[>last index<]).param);
+            (* pid *)
+            turn = if in_green and not ( (iti[>index<]).act = Turn) then 0.0 else pid(err, integral, derivative);
+            rspeed = if (( Utilities.decode_color(sens.s_front) = Red or Utilities.decode_color(sens.s_front) = Amber) or 
+                            sens.s_sonar<60 )
+                      then idlew 
+                      else { left = tp -. turn; right = tp +. turn};
+            arriving = false;
+          until  (not last in_green and in_green) then Distribution
+      state Turn
+          var timeToTravelArc,time,speed : float;
+          do reset time = 0.0 fby (time +. timestep); every not ((iti[>last index<]).act = Turn);
+          timeToTravelArc = timeToTravelArc(iti,index);
+
+          speed = getMaxSpeed((iti[>index-1<]).param);
+          rspeed = if (((iti[>index<]).param <. 0.0) ) 
+                    then  {left = speed; right = -.speed } 
+                    else {left = -.speed; right = speed };
+          arriving = false;
+      until (time >=. timeToTravelArc) then Distribution
+      state Stop
+          do rspeed = idlew; 
+          arriving = true;
+  end
+tel

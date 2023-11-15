@@ -1,0 +1,67 @@
+node chrono2(start_stop, rst, hs:bool) returns (last time:int = 0)
+let
+    automaton
+        state Stop
+            do  time = if rst then 0 
+                else last time
+        unless start_stop then Start
+        state Start 
+            do time = if rst then 0 
+                else last time + if hs then 10 else 0
+        unless start_stop then Stop 
+    end 
+tel
+
+node chrono3(start_stop, rst, hs, pause:bool) returns (last displayed_time : int = 0)
+var internal_time : int;
+let
+    internal_time = chrono2(start_stop, rst, hs);
+    automaton 
+        state Gelee
+            do displayed_time = internal_time
+            unless pause then Degelee
+        state Degelee
+            do 
+            unless pause then Gelee
+    end
+tel
+
+node affiche_montre(internal_time:int) returns(displayed_time:int^3)
+let 
+    displayed_time[2] = internal_time % 60;
+    internal_time = internal_time / 60;
+    displayed_time[1] = internal_time % 60;
+    internal_time = internal_time / 60;
+    displayed_time[0] = internal_time % 24;
+    internal_time = internal_time / 24;
+tel
+
+node montre(start_stop, rst, hs, pause,mode : bool) returns (displayed_time :int^3)
+var back_time : int^3; time:int; internal_time: int = 0; internal_pause, chrono:bool;
+let
+
+    internal_time = chrono3(start_stop and chrono,rst and chrono,hs,pause and chrono);
+    automaton
+        state AfficheHeure
+            do displayed_time = ?;
+            chono = false;
+            unless mode then Chrono
+        state Chrono
+            do displayed_time = affiche_montre(internal_time);
+            chrono = true;
+            unless mode then Reglage
+        state Reglage
+            do chrono = false;
+            automaton
+                    state Heure
+                        do displayed_time[2] = chrono2(start_stop,rst,hs);
+                        unless pause then Minute
+                    state Minute
+                        do displayed_time[1] = chrono2(start_stop,rst,hs);
+                        unless pause then Seconde
+                    state Seconde
+                        do displayed_time[0] = chrono2(start_stop,rst,hs);
+                        unless pause then Heure
+            unless mode then AfficheHeure
+    end
+tel

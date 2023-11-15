@@ -1,0 +1,101 @@
+node somme(x: int) returns (o: int)
+let
+    o = x + 0 fby o;
+tel
+
+node alarme_bornes(x:float; lo:float; hi:float) returns (alarme:bool)
+let
+    alarme = (x>=.hi or x<=.lo);
+tel
+
+node vitesse_temp(x:float) returns (y:float)
+let 
+    y = 0.0 ->  (pre x) -. x;
+tel
+
+(* node vitesse_temp(x:float) returns (y:float)
+let
+    y = x-.(x fby x);
+tel *)
+
+node alarme_vit(x:float) returns (alarme:bool)
+let
+    alarme = alarme_bornes(vitesse_temp(x), -.2.0, 2.0);
+tel
+
+node jafter(x:bool) returns (y:bool)
+var last b:bool = false;
+let
+    b = x;
+    y = last b;
+tel
+
+node min_flot(x:int) returns (y:int)
+var aux:int;
+let
+    aux = x -> pre y;
+    y = if x > aux then aux else x; 
+tel
+
+(* Eexercice 8 : compteur d'événements *)
+node compteur_evt(e:bool) returns (c:int)
+let
+    c = if e then 0 fby c+1 else 0;
+tel
+
+(* Exercice 9 :  *)
+(* con et coff mutuellement exclusifs *)
+node switch2(orig, con, coff:bool) returns (statev:bool)
+var aux:bool;
+let
+    aux = orig -> pre statev;
+    statev = (aux or con) and not coff;
+
+tel
+
+node hadd(x,y:bool) returns (cout,s:bool)
+let
+    s = x <> y ;
+    cout= x and y;
+tel
+
+node fadd(cin,x,y:bool) returns (cout,s:bool)
+var s1,c1,c2:bool;
+let
+    (c1,s1) = hadd(x,y);
+    (c2,s) = hadd(s1,cin);
+    cout = c1 or c2;
+tel
+
+node sadd(x,y:bool) returns (s:bool)
+var c : bool;
+let
+    (c,s) = fadd(false fby c, x,y)
+tel
+
+node alarme_vit_val(x:float) returns (alarme:bool)
+let
+   alarme = compteur_evt(alarme_vit(x)) >=3 
+            and alarme_bornes(x,-.10.0, 35.0);
+tel
+
+node somme_bis(x:int) returns (o:int)
+let
+    o = (0 fby o) + x
+tel
+
+node compteur_evt_redux(x:bool) returns (o:int)
+let
+    (* reset o = somme(0 -> 1); every not(x) *)
+    reset o = somme(1)-1; every not(x);
+tel
+
+node detecteurIntrusion(mvt, onoff, hs : bool) returns (alarme : bool)
+var mvt_detecte : bool; en_marche : bool; time : int;
+let
+    en_marche = (false fby en_marche) <> onoff;
+    alarme =(mvt or (false fby alarme)) and en_marche;
+    mvt_detecte = time >=50;
+    reset time = somme(if hs then 10 else 0);
+    every not mvt or not en_marche;
+tel

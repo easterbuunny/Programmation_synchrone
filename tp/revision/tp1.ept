@@ -1,0 +1,58 @@
+node n1(x:float) returns (y:float)
+let
+    y = x *. x +. 1.0;
+tel
+
+node n2(x,y:bool) returns (z,t:bool)
+let
+    z = if x then y else false;
+    t = if x 
+    then (if y then false else true)
+    else (if y then true else false);
+tel
+
+node n3(x:int)  returns (y:int)
+var aux :int;
+let
+    aux = 0 -> pre x;
+    y = x + aux;
+tel
+
+node n5(x:int) returns (y:int)
+let
+    y = 0 fby (1 -> (y +pre y));
+tel
+
+node somme(x:int) returns (o :int)
+let
+    o = x+ 0 fby o;
+tel
+
+node alarme_bornes(x, lo, hi:float)returns (alarme :bool)
+let
+    alarme = ((x<=.lo or x>=.hi) and lo<=.hi);
+tel
+
+node vitesse_temp(x:float) returns (y:float)
+let
+    (* y = (0.0 fby x) -. x; *)
+    (* y = 0.0 -> (pre x) -. x; *)
+    y = x -. 0.0 fby x;
+tel
+
+node ring_buffer(e:int; w,r:bool) returns (o:int)
+var r_idx, w_idx:int; pa, a : int^;
+let 
+    o = a.[r_idx] default 0;
+    pa = (0^n) fby a;
+    a = if w then [pa with [w_idx] = e] else pa;
+    r_idx = 0 fby (((if r then 1 else 0) + r_idx) % n);
+    w_idx = 0 fby (((if w then 1 else 0) + w_idx) % n );
+tel
+
+node test(c:bool) returns (x:int)
+let
+    (* x = (merge c 1 0) + (0 fby x); *)
+    (* x = (if c then 1 else 0) + (0 fby x); *)
+    x = (merge c (1 when c) 0 when c)+ (0 fby x);
+tel
